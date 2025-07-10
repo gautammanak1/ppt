@@ -1,5 +1,7 @@
 # A2A Adapter Documentation
 
+
+
 ## Overview
 
 The **A2A Adapter** provides a bridge between uAgents (agentic framework) and the A2A (Agent-to-Agent) protocol, enabling seamless communication between agents using different protocols and architectures. It supports both single-agent and multi-agent routing, allowing for flexible integration and intelligent query handling.
@@ -50,6 +52,40 @@ If no agent matches, or if all endpoints fail, the adapter can call a fallback e
 
 ---
 
+## Features
+
+### Agent Management
+- Configure and manage multiple A2A agents with different specialties
+- Automatic agent discovery and registration
+- Health monitoring and status tracking
+- Registers Agent Cards for multiple A2A servers and runs them alongside the uAgent in a single terminal using different ports
+- Supports communication with both single and multiple A2A servers
+- Dynamically determines the appropriate A2A server based on the user query, sends the request via HTTP, and returns the response back to ASI:One
+
+### Intelligent Routing
+- **Keyword Matching**: Route queries based on agent keywords and specialties
+- **LLM-Based Routing**: Use AI to intelligently select the best agent for complex queries
+- **Round-Robin**: Distribute load evenly across available agents
+- **Priority-Based**: Assign priorities to agents for preferential routing
+
+### Communication Protocols
+- Full uAgent chat protocol support
+- Asynchronous message handling
+- Acknowledgment and error handling
+- Real-time agent communication
+
+### Reliability Features
+- Health checking and agent discovery
+- Fallback executor support
+- Graceful error handling
+- Timeout management
+
+### Installation
+
+```shell
+pip install "uagents-adapter[a2a]"
+```
+
 ## Example Usage
 
 ```python
@@ -83,6 +119,55 @@ adapter = MultiA2AAdapter(
 )
 adapter.run()
 ```
+
+## A2AAdapter
+
+Main adapter class for managing A2A agents.
+
+#### Constructor Parameters
+
+| Parameter           | Type                | Default   | Description                                 |
+|---------------------|---------------------|-----------|---------------------------------------------|
+| `name`              | str                 | Required  | Name of the adapter                         |
+| `description`       | str                 | Required  | Description of the adapter                  |
+| `asi_api_key`       | str                 | Required  | ASI:One API Keys                            |
+| `port`              | int                 | 8000      | uAgent port                                 |
+| `mailbox`           | bool                | True      | Enable mailbox functionality                |
+| `seed`              | str                 | None      | Seed for uAgent (auto-generated if None)    |
+| `agent_configs`     | List[A2AAgentConfig]| []        | List of agent configurations                |
+| `fallback_executor` | AgentExecutor       | None      | Fallback executor for unrouted queries      |
+| `routing_strategy`  | str                 | "keyword_match" | Routing strategy to use              |
+
+#### Methods
+
+##### `add_agent_config(config: A2AAgentConfig)`
+Add a new agent configuration to the adapter.
+
+##### `run()`
+Start the adapter and begin processing messages.
+
+---
+
+### A2AAgentConfig
+
+Configuration class for individual A2A agents.
+
+#### Constructor Parameters
+
+| Parameter      | Type      | Default        | Description                        |
+|----------------|-----------|----------------|------------------------------------|
+| `name`         | str       | Required       | Agent name                         |
+| `description`  | str       | Required       | Agent description                  |
+| `url`          | str       | Required       | Agent URL                          |
+| `port`         | int       | Required       | Agent port                         |
+| `specialties`  | List[str] | Required       | Agent specialties                  |
+| `skills`       | List[str] | Auto-generated | Agent skills                       |
+| `examples`     | List[str] | Auto-generated | Usage examples                     |
+| `keywords`     | List[str] | Auto-generated | Routing keywords                   |
+| `priority`     | int       | 1              | Agent priority (higher = preferred)|
+
+---
+
 
 ---
 
@@ -304,3 +389,4 @@ if __name__ == "__main__":
 ```
 
 ---
+
