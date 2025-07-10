@@ -808,7 +808,6 @@ class MultiA2AAdapter:
                 event = await event_queue.dequeue_event()
                 if event:
                     events.append(event)
-
             if events:
                 # Get the last event which should be the response
                 last_event = events[-1]
