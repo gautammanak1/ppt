@@ -13,13 +13,8 @@ from a2a.server.apps import A2AStarletteApplication
 from a2a.server.events import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import (
-    AgentCapabilities,
-    AgentCard,
-    AgentSkill,
-    Part,
-    TextPart,
-)
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill
+from a2a.utils import new_agent_text_message
 from pydantic import BaseModel
 from uagents import Agent, Context, Protocol
 from uagents_core.contrib.protocols.chat import (
@@ -233,11 +228,7 @@ class SingleA2AAdapter:
         """Call the agent executor directly as fallback."""
         try:
 
-            agent_message = ChatMessage(
-                role="user",
-                parts=[Part(root=TextPart(type="text", text=message))],
-                messageId=uuid4().hex
-            )
+            agent_message = new_agent_text_message(message)
 
             context = RequestContext(
                 message=agent_message,
@@ -794,11 +785,7 @@ class MultiA2AAdapter:
         try:
 
             # Create a mock request context
-            agent_message = ChatMessage(
-                role="user",
-                parts=[Part(root=TextPart(type="text", text=message))],
-                messageId=uuid4().hex
-            )
+            agent_message = new_agent_text_message(message)
 
             context = RequestContext(
                 message=agent_message,
@@ -810,7 +797,10 @@ class MultiA2AAdapter:
             event_queue = EventQueue()
 
             # Execute the fallback agent
-            await self.fallback_executor.execute(context, event_queue)
+            if self.fallback_executor is not None:
+                await self.fallback_executor.execute(context, event_queue)
+            else:
+                return "❌ No fallback executor is configured."
 
             # Get the response from the event queue
             events = []
