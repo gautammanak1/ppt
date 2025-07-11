@@ -48,66 +48,13 @@ The A2A uAgent Adapter provides a seamless bridge between A2A agents and the uAg
 
 ```shell
 pip install "uagents-adapter[a2a]"
+pip install "a2a-sdk[all]"
 ```
 
 ## Quick Start
 
-### Single Agent Setup
 
-```python
-from uagents_adapter import SingleA2AAdapter
-from your_agent_executor import YourAgentExecutor  # Replace with your executor
 
-def main():
-    # Initialize your agent executor
-    executor = YourAgentExecutor()
-
-    # Create and run the adapter
-    adapter = SingleA2AAdapter(
-        agent_executor=executor,
-        name="MyAgent",
-        description="A helpful AI assistant",
-        port=8000,
-        a2a_port=9999
-    )
-    adapter.run()
-```
-
-### Multi-Agent Setup
-
-```python
-from uagents_adapter import MultiA2AAdapter, A2AAgentConfig
-
-# Configure multiple agents
-agent_configs = [
-    A2AAgentConfig(
-        name="CodeAgent",
-        description="Specialized in coding tasks",
-        url="http://localhost:9001",
-        port=9001,
-        specialties=["Python", "JavaScript", "Code Review"],
-        priority=2
-    ),
-    A2AAgentConfig(
-        name="DataAgent",
-        description="Expert in data analysis",
-        url="http://localhost:9002",
-        port=9002,
-        specialties=["Data Analysis", "Statistics", "Visualization"]
-    )
-]
-
-# Create multi-agent adapter
-adapter = MultiA2AAdapter(
-    name="MultiAgentSystem",
-    description="Coordinated AI agent system",
-    asi_api_key='your_asi_api_key',
-    port=8000,
-    agent_configs=agent_configs,
-    routing_strategy="keyword_match"
-)
-adapter.run()
-```
 
 ## Configuration
 
@@ -258,23 +205,33 @@ flowchart LR
 6. **Reply**: Response sent back to original sender
 7. **Acknowledgment**: Confirmation sent to complete the cycle
 
-## Examples
-
-### Single Agent Example
+### Single Agent Setup
 
 ```python
-import asyncio
-from uagents_adapter import SingleA2AAdapter
+from uagent_a2a_adapter import SingleA2AAdapter, A2AAgentConfig, a2a_servers
 from brave.agent import BraveSearchAgentExecutor
 
 def main():
+    # Configure your agent
+    agent_config = A2AAgentConfig(
+        name="brave_search_specialist",
+        description="AI Agent for web and news search using Brave Search API",
+        url="http://localhost:10020",
+        port=10020,
+        specialties=["web search", "news", "information retrieval", "local business", "site-specific lookup"],
+        priority=3
+    )
     executor = BraveSearchAgentExecutor()
+    # Start the A2A server
+    a2a_servers([agent_config], {agent_config.name: executor})
+    print(f"AgentCard manifest URL: http://localhost:{agent_config.port}/.well-known/agent.json")
+    # Start the uAgent adapter
     adapter = SingleA2AAdapter(
-        agent_executor=self.executors["BraveSearchAgentExecutor"],
-        name="brave_search",
-        description="AI Search Agent powered by Brave Search API",
+        agent_executor=executor,
+        name="brave",
+        description="Routes queries to Brave Search AI specialists",
         port=8200,
-        a2a_port=10020
+        a2a_port=10030
     )
     adapter.run()
 
@@ -282,146 +239,234 @@ if __name__ == "__main__":
     main()
 ```
 
-### Multi-Agent Example
+### Multi-Agent Setup
 
 ```python
-import asyncio
-import threading
-import time
-from typing import Dict, List
-from dataclasses import dataclass
-from uagents_adapter import MultiA2AAdapter, A2AAgentConfig
+from uagent_a2a_adapter import MultiA2AAdapter, A2AAgentConfig, a2a_servers
 from agents.research_agent import ResearchAgentExecutor
 from agents.coding_agent import CodingAgentExecutor
 from agents.analysis_agent import AnalysisAgentExecutor
 
-@dataclass
-class AIAgentConfig:
-    name: str
-    description: str
-    port: int
-    a2a_port: int
-    specialties: List[str]
-    executor_class: str
+def main():
+    agent_configs = [
+        A2AAgentConfig(
+            name="research_specialist",
+            description="AI Research Specialist for research and analysis",
+            url="http://localhost:10020",
+            port=10020,
+            specialties=["research", "analysis", "fact-finding", "summarization"],
+            priority=3
+        ),
+        A2AAgentConfig(
+            name="coding_specialist",
+            description="AI Software Engineer for coding",
+            url="http://localhost:10022",
+            port=10022,
+            specialties=["coding", "debugging", "programming"],
+            priority=3
+        ),
+        A2AAgentConfig(
+            name="analysis_specialist",
+            description="AI Data Analyst for insights and metrics",
+            url="http://localhost:10023",
+            port=10023,
+            specialties=["data analysis", "insights", "forecasting"],
+            priority=2
+        )
+    ]
+    executors = {
+        "research_specialist": ResearchAgentExecutor(),
+        "coding_specialist": CodingAgentExecutor(),
+        "analysis_specialist": AnalysisAgentExecutor()
+    }
+    a2a_servers(agent_configs, executors)
+    for config in agent_configs:
+        print(f"AgentCard manifest URL: http://localhost:{config.port}/.well-known/agent.json")
+    adapter = MultiA2AAdapter(
+        name="coordinator---",
+        description="Routes queries to AI specialists",
+        asi_api_key="your_asi_api_key",
+        port=8200,
+        mailbox=True,
+        agent_configs=agent_configs,
+        routing_strategy="keyword_match"
+    )
+    adapter.run()
 
-class MultiAgentOrchestrator:
+if __name__ == "__main__":
+    main()
+```
+
+## Full Example: Single Agent (Brave Search)
+
+Below is a complete example of a single-agent setup using Brave Search. This matches the latest code in function.py:
+
+```python
+from typing import Dict, List
+from uagent_a2a_adapter import MultiA2AAdapter, A2AAgentConfig, a2a_servers
+from brave.agent import BraveSearchAgentExecutor
+
+class BraveSearchOrchestrator:
     def __init__(self):
         self.coordinator = None
-        self.agent_configs: List[AIAgentConfig] = []
+        self.agent_configs: List[A2AAgentConfig] = []
         self.executors: Dict[str, any] = {}
         self.running = False
 
     def setup_agents(self):
+        print("🔧 Setting up Brave Search Agent")
         self.agent_configs = [
-            AIAgentConfig(
-                name="research_specialist",
-                description="AI Research Specialist for research and analysis",
-                port=8100,
-                a2a_port=10020,
-                specialties=["research", "analysis", "fact-finding", "summarization"],
-                executor_class="ResearchAgentExecutor"
-            ),
-            AIAgentConfig(
-                name="coding_specialist",
-                description="AI Software Engineer for coding",
-                port=8102,
-                a2a_port=10022,
-                specialties=["coding", "debugging", "programming"],
-                executor_class="CodingAgentExecutor"
-            ),
-            AIAgentConfig(
-                name="analysis_specialist",
-                description="AI Data Analyst for insights and metrics",
-                port=8103,
-                a2a_port=10023,
-                specialties=["data analysis", "insights", "forecasting"],
-                executor_class="AnalysisAgentExecutor"
+            A2AAgentConfig(
+                name="brave_search_specialist",
+                description="AI Agent for web and news search using Brave Search API",
+                url="http://localhost:10020",
+                port=10020,
+                specialties=["web search", "news", "information retrieval", "local business", "site-specific lookup"],
+                priority=3
             )
         ]
         self.executors = {
-            "ResearchAgentExecutor": ResearchAgentExecutor(),
-            "CodingAgentExecutor": CodingAgentExecutor(),
-            "AnalysisAgentExecutor": AnalysisAgentExecutor()
+            "brave_search_specialist": BraveSearchAgentExecutor()
         }
+        print("✅ Brave Search Agent configuration created")
 
     def start_individual_a2a_servers(self):
-        from a2a.server.apps import A2AStarletteApplication
-        from a2a.server.request_handlers import DefaultRequestHandler
-        from a2a.server.tasks import InMemoryTaskStore
-        from a2a.types import AgentCapabilities, AgentCard, AgentSkill
-        import uvicorn
-
-        def start_server(config: AIAgentConfig, executor):
-            try:
-                skill = AgentSkill(
-                    id=f"{config.name}_skill",
-                    name=config.name.title(),
-                    description=config.description,
-                    tags=config.specialties
-                )
-                agent_card = AgentCard(
-                    name=config.name.title(),
-                    description=config.description,
-                    url=f"http://localhost:{config.a2a_port}/",
-                    version="1.0.0",
-                    defaultInputModes=["text"],
-                    defaultOutputModes=["text"],
-                    capabilities=AgentCapabilities(),
-                    skills=[skill]
-                )
-                server = A2AStarletteApplication(
-                    agent_card=agent_card,
-                    http_handler=DefaultRequestHandler(
-                        agent_executor=executor,
-                        task_store=InMemoryTaskStore()
-                    )
-                )
-                uvicorn.run(server.build(), host="0.0.0.0", port=config.a2a_port, log_level="info")
-            except Exception as e:
-                pass
-
-        for config in self.agent_configs:
-            thread = threading.Thread(
-                target=start_server,
-                args=(config, self.executors[config.executor_class]),
-                daemon=True
-            )
-            thread.start()
-            time.sleep(1)
-        time.sleep(5)
+        print("🔄 Starting Brave Search server...")
+        a2a_servers(self.agent_configs, self.executors)
+        print("✅ Brave Search server started!")
+        print(f"AgentCard manifest URL: http://localhost:{self.agent_configs[0].port}/.well-known/agent.json")
 
     def create_coordinator(self):
-        a2a_configs = [
-            A2AAgentConfig(
-                name=config.name,
-                description=config.description,
-                url=f"http://localhost:{config.a2a_port}",
-                port=config.a2a_port,
-                specialties=config.specialties,
-                priority=3 if "research" in config.specialties or "coding" in config.specialties else 2
-            ) for config in self.agent_configs
-        ]
+        print("🤖 Creating Brave Coordinator...")
         self.coordinator = MultiA2AAdapter(
-            name="coordinator",
-            description="Routes queries to AI specialists",
-            asi_api_key='your_asi_api_key',
+            name="brave_coordinator",
+            description="Coordinator for routing Brave Search queries",
+            asi_api_key="sk_5822be6c948d4a25830382b308f6f51ee13629ffe6fc4dc7a064cc26e486df84",
             port=8200,
             mailbox=True,
-            agent_configs=a2a_configs,
+            agent_configs=self.agent_configs,
             routing_strategy="keyword_match"
         )
+        print("✅ Brave Coordinator created!")
         return self.coordinator
 
     def start_system(self):
+        print("🚀 Starting Brave Search System")
         try:
             self.setup_agents()
             self.start_individual_a2a_servers()
             coordinator = self.create_coordinator()
             self.running = True
+            print(f"🎯 Starting Brave coordinator on port {coordinator.port}...")
             coordinator.run()
         except KeyboardInterrupt:
+            print("👋 Shutting down Brave Search system...")
             self.running = False
-        except Exception:
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            self.running = False
+
+def main():
+    try:
+        system = BraveSearchOrchestrator()
+        system.start_system()
+    except KeyboardInterrupt:
+        print("👋 Brave system shutdown complete!")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
+## Full Example: Multi-Agent Orchestrator
+
+Below is a complete example of a multi-agent orchestrator, matching the latest code in multiagent.py:
+
+```python
+from typing import Dict, List
+from uagent_a2a_adapter import MultiA2AAdapter, A2AAgentConfig, a2a_servers
+from agents.research_agent import ResearchAgentExecutor
+from agents.coding_agent import CodingAgentExecutor
+from agents.analysis_agent import AnalysisAgentExecutor
+
+class MultiAgentOrchestrator:
+    def __init__(self):
+        self.coordinator = None
+        self.agent_configs: List[A2AAgentConfig] = []
+        self.executors: Dict[str, any] = {}
+        self.running = False
+
+    def setup_agents(self):
+        print("🔧 Setting up Multi-Agent System")
+        self.agent_configs = [
+            A2AAgentConfig(
+                name="research_specialist",
+                description="AI Research Specialist for research and analysis",
+                url="http://localhost:10020",
+                port=10020,
+                specialties=["research", "analysis", "fact-finding", "summarization"],
+                priority=3
+            ),
+            A2AAgentConfig(
+                name="coding_specialist",
+                description="AI Software Engineer for coding",
+                url="http://localhost:10022",
+                port=10022,
+                specialties=["coding", "debugging", "programming"],
+                priority=3
+            ),
+            A2AAgentConfig(
+                name="analysis_specialist",
+                description="AI Data Analyst for insights and metrics",
+                url="http://localhost:10023",
+                port=10023,
+                specialties=["data analysis", "insights", "forecasting"],
+                priority=2
+            )
+        ]
+        self.executors = {
+            "research_specialist": ResearchAgentExecutor(),
+            "coding_specialist": CodingAgentExecutor(),
+            "analysis_specialist": AnalysisAgentExecutor()
+        }
+        print("✅ Agent configurations created")
+
+    def start_individual_a2a_servers(self):
+        print("🔄 Starting servers...")
+        a2a_servers(self.agent_configs, self.executors)
+        print("✅ Servers started!")
+        for config in self.agent_configs:
+            print(f"AgentCard manifest URL: http://localhost:{config.port}/.well-known/agent.json")
+
+    def create_coordinator(self):
+        print("🤖 Creating Coordinator...")
+        self.coordinator = MultiA2AAdapter(
+            name="coordinator---",
+            description="Routes queries to AI specialists",
+            asi_api_key="sk_5822be6c948d4a25830382b308f6f51ee13629ffe6fc4dc7a064cc26e486df84",
+            port=8200,
+            mailbox=True,
+            agent_configs=self.agent_configs,
+            routing_strategy="keyword_match"
+        )
+        print("✅ Coordinator created!")
+        return self.coordinator
+
+    def start_system(self):
+        print("🚀 Starting Multi-Agent System")
+        try:
+            self.setup_agents()
+            self.start_individual_a2a_servers()
+            coordinator = self.create_coordinator()
+            self.running = True
+            print(f"🎯 Starting coordinator on port {coordinator.port}...")
+            coordinator.run()
+        except KeyboardInterrupt:
+            print("👋 Shutting down...")
+            self.running = False
+        except Exception as e:
+            print(f"❌ Error: {e}")
             self.running = False
 
 def main():
@@ -429,13 +474,24 @@ def main():
         system = MultiAgentOrchestrator()
         system.start_system()
     except KeyboardInterrupt:
-        pass
-    except Exception:
-        pass
+        print("👋 Shutdown complete!")
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     main()
 ```
+
+---
+
+## Notes
+- The recommended way to start A2A servers is with the `a2a_servers` utility, which handles server startup and manifest serving for each agent.
+- After starting each A2A server, the manifest URL is printed for easy inspection and integration: `http://localhost:{port}/.well-known/agent.json`.
+- Use `A2AAgentConfig` for all agent configuration, both single and multi-agent.
+- The old `AgentConfig` dataclass and manual threading-based server startup are deprecated.
+
+---
+
 
 ## Advanced Usage
 
@@ -489,6 +545,3 @@ The adapter includes comprehensive error handling:
 - **Network Timeouts**: Configurable timeout settings with graceful degradation
 - **Invalid Responses**: Fallback to error messages or alternative agents
 - **Health Check Failures**: Automatic agent exclusion and retry logic
-
-
-
